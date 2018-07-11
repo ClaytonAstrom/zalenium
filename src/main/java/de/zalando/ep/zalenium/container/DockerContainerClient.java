@@ -156,6 +156,7 @@ public class DockerContainerClient implements ContainerClient {
         return null;
     }
 
+    //TODO preeeetty sure we just need an AWS version of this, don't think there's much else to do
     public void stopContainer(String containerId) {
         try {
             dockerClient.stopContainer(containerId, 5);
