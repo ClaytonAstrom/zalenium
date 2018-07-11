@@ -234,28 +234,39 @@ public class DockerContainerClient implements ContainerClient {
         return createContainer(zaleniumContainerName, image, envVars, nodePort, NAME_COLLISION_RETRIES);
     }
 
+    //TODO either split this function or create a new AWS function
     public ContainerCreationStatus createContainer(String zaleniumContainerName, String image, Map<String, String> envVars,
                                                    String nodePort, int collisionAttempts) {
         String containerName = generateContainerName(zaleniumContainerName);
 
+        //TODO what folders?  Can we share/mount a directory from EC2?  Is this necessary?  For what?
         loadMountedFolders(zaleniumContainerName);
         // In some environments the created containers need to be labeled so the platform can handle them. E.g. Rancher.
+        //TODO need to figure out what these labels are and how to translate them to AWS
         loadSeleniumContainerLabels();
+        //TODO we probably don't need this
         loadPullSeleniumImageFlag();
+        //TODO we need to figure out what privileged is needed for and deprecate
         loadIsZaleniumPrivileged(zaleniumContainerName);
+        //TODO what storage options?
         loadStorageOpts(zaleniumContainerName);
 
+        //TODO Need to mount this to some other resource.  Folder on the grid server?  S3?  Probably S3
         List<String> binds = generateMountedFolderBinds();
         binds.add("/dev/shm:/dev/shm");
 
+        //TODO VNC is probably the way to attach to live video
         String noVncPort = envVars.get("NOVNC_PORT");
 
+        //TODO I don't think this is going to work at all.  Not really sure how it's used in this context.
         String networkMode = getZaleniumNetwork(zaleniumContainerName);
 
+        //TODO Not sure what this does
         List<String> extraHosts = new ArrayList<>();
         extraHosts.add(String.format("%s:%s", DOCKER_FOR_MAC_LOCALHOST_NAME, DOCKER_FOR_MAC_LOCALHOST_IP));
 
         // Allows "--net=host" work. Only supported for Linux.
+        //TODO probably can't use?
         if (DOCKER_NETWORK_HOST_MODE_NAME.equalsIgnoreCase(networkMode)) {
             envVars.put("SELENIUM_HUB_HOST", "127.0.0.1");
             envVars.put("SELENIUM_NODE_HOST", "127.0.0.1");
@@ -269,6 +280,7 @@ public class DockerContainerClient implements ContainerClient {
         }
 
         // Reflect extra hosts of the hub container
+        //TODO again, not sure what this is
         final List<String> hubExtraHosts = getContainerExtraHosts(zaleniumContainerName);
         extraHosts.addAll(hubExtraHosts);
 
@@ -282,12 +294,13 @@ public class DockerContainerClient implements ContainerClient {
                 .build();
 
 
+        //TODO what is this?
         List<String> flattenedEnvVars = envVars.entrySet().stream()
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .collect(Collectors.toList());
         flattenedEnvVars.addAll(zaleniumHttpEnvVars);
 
-
+        //TODO this logic changes, ish.  Probably more on the task creation side
         final String[] exposedPorts = {nodePort, noVncPort};
         ContainerConfig.Builder builder = ContainerConfig.builder()
                 .image(image)
@@ -295,12 +308,15 @@ public class DockerContainerClient implements ContainerClient {
                 .exposedPorts(exposedPorts)
                 .hostConfig(hostConfig);
 
+        //TODO what does this do?
         if (seleniumContainerLabels.size() > 0) {
             builder.labels(seleniumContainerLabels);
         }
 
+        //TODO no idea
         final ContainerConfig containerConfig = builder.build();
 
+        //TODO this has to be changed to an ecsRegisterTask call
         try {
             if (pullSeleniumImage) {
                 List<Image> images = dockerClient.listImages(DockerClient.ListImagesParam.byName(image));
@@ -315,6 +331,7 @@ public class DockerContainerClient implements ContainerClient {
             ga.trackException(e);
         }
 
+        //TODO this has to be translated to an ecsRunTask call
         try {
             final ContainerCreation container = dockerClient.createContainer(containerConfig, containerName);
             dockerClient.startContainer(container.id());
